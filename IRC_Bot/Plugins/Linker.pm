@@ -30,7 +30,7 @@ sub try_get_title { #{{{
 		print STDERR "not a text link\n";
 		return '';
 	}
-	open $fd, '-|', $self->{curlbinary}, '-A', 'Mozilla', '--range', '0-65536', '--max-filesize', '1048576', '-sLm7', $url;
+	open $fd, '-|', $self->{curlbinary}, '-A', 'Mozilla', '--header', 'Accept-Language:en', '--range', '0-65536', '--max-filesize', '1048576', '-sLm7', $url;
 	my $page;
 	{
 		local $/ = undef;

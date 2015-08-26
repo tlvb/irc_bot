@@ -7,10 +7,14 @@ use POSIX;
 sub new { #{{{
 	my ($class, $persistence_dir) = @_;
 	$persistence_dir //= '/tmp'; 
+	my $blocked = {};
+	if (-f "$persistence_dir/PluginManager.storable") {
+		$blocked = Storable::retrieve "$persistence_dir/PluginManager.storable";
+	}
 	my $self = {
 		plugins=>{},
 		persistence_dir=>$persistence_dir,
-		blocked=>(Storable::retrieve "$persistence_dir/PluginManager.storable") // {}
+		blocked=>$blocked
 	};
 	bless $self, $class;
 	return $self;

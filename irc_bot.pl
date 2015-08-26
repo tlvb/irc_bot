@@ -24,9 +24,10 @@ my $user = $opt{user} or die 'no user in config file';
 my $nick = $opt{nick} or die 'no nick in config file';
 my $password = $opt{password} or die 'no password in config file';
 my $channel = $opt{channel} or die 'no channel in config file';
-my @plugins = split /\s*,\s*/, $opt{plugins} or ();
+my @plugins = split /\s*,\s*/, ($opt{plugins}//'');
+my $pdir = $opt{persistence_dir} // '/tmp';
 
-my $plugman = IRC_Bot::PluginManager->new();
+my $plugman = IRC_Bot::PluginManager->new($pdir);
 for (@plugins) {
 	$plugman->try_load_plugin($_);
 }
