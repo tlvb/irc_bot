@@ -40,7 +40,7 @@ sub try_load_plugin { #{{{
 	my $ret = '';
 
 	if (grep {$_ eq $plugin} keys %{$self->{plugins}}) {
-		my $ret = $self->try_unload_plugin($plugin);
+		my $ret = $self->try_unload_plugin($plugin, 1);
 		return $ret if $ret ne '';
 	}
 	{
@@ -58,10 +58,12 @@ sub try_load_plugin { #{{{
 	return '';
 } #}}}
 sub try_unload_plugin { #{{{
-	my ($self, $plugin) = @_;
+	my ($self, $plugin, $root) = @_;
+	$root //= 0;
 
 	return 'INVALIDNAME' if $plugin =~ /[^a-zA-Z0-9_]/;
 	return 'NOTLOADED' unless grep {$_ eq $plugin} keys %{$self->{plugins}};
+	return 'NOTPERMITTED' if (not $root) and exists $self->{plugins}->{protected} and $self->{plugins}->{protected};
 
 	my $pluginfile = "IRC_Bot/Plugins/$plugin.pm";
 	{
