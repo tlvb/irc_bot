@@ -6,8 +6,11 @@ use POSIX;
 
 sub new { #{{{
 	my ($class, $persistence_dir) = @_;
-	$persistence_dir //= '/tmp'; 
+	$persistence_dir //= '/tmp';
 	my $blocked = {};
+	if (-f "$persistence_dir/PluginManager.storable.gz") {
+		`gunzip -f $persistence_dir/PluginManager.storable.gz`;
+	}
 	if (-f "$persistence_dir/PluginManager.storable") {
 		$blocked = Storable::retrieve "$persistence_dir/PluginManager.storable";
 	}
@@ -84,6 +87,9 @@ sub load_plugin_state { #{{{
 	my $pi = $self->{plugins}->{$plugin};
 	my $dir = $self->{persistence_dir};
 	if (defined $dir and -d $dir and $pi->can('load')) {
+		if (-f "$dir/$plugin.storable.gz") {
+			`gunzip -f $dir/$plugin.storable.gz`;
+		}
 		if (-f "$dir/$plugin.storable") {
 			print "loading $plugin data from $dir/$plugin.storable\n";
 			my $data = Storable::retrieve "$dir/$plugin.storable";
@@ -102,6 +108,7 @@ sub save_plugin_state { #{{{
 				print "saving $plugin data to $dir/$plugin.storable\n";
 				Storable::nstore $data, "$dir/$plugin.storable";
 			}
+			`gzip -f $dir/$plugin.storable`;
 		}
 	}
 } #}}}
@@ -234,5 +241,6 @@ sub try_unload_all_plugins { #{{{
 		$self->try_unload_plugin($pn);
 	}
 	Storable::nstore $self->{blocked}, "$dir/PluginManager.storable";
+	`gzip -f $dir/PluginManager.storable`;
 } #}}}
 1;
