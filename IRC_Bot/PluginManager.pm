@@ -63,7 +63,7 @@ sub try_unload_plugin { #{{{
 
 	return 'INVALIDNAME' if $plugin =~ /[^a-zA-Z0-9_]/;
 	return 'NOTLOADED' unless grep {$_ eq $plugin} keys %{$self->{plugins}};
-	return 'NOTPERMITTED' if (not $root) and exists $self->{plugins}->{protected} and $self->{plugins}->{protected};
+	return 'NOTPERMITTED' if (not $root) and (exists $self->{plugins}->{$plugin}->{protected}) and ($self->{plugins}->{$plugin}->{protected} != 0);
 
 	my $pluginfile = "IRC_Bot/Plugins/$plugin.pm";
 	{
