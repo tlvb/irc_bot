@@ -9,7 +9,7 @@ sub new { #{{{
 	$persistence_dir //= '/tmp';
 	my $blocked = {};
 	if (-f "$persistence_dir/PluginManager.storable.gz") {
-		`gunzip -f $persistence_dir/PluginManager.storable.gz`;
+		system '/usr/bin/gunzip', '-f', "$persistence_dir/PluginManager.storable.gz";
 	}
 	if (-f "$persistence_dir/PluginManager.storable") {
 		$blocked = Storable::retrieve "$persistence_dir/PluginManager.storable";
@@ -88,7 +88,8 @@ sub load_plugin_state { #{{{
 	my $dir = $self->{persistence_dir};
 	if (defined $dir and -d $dir and $pi->can('load')) {
 		if (-f "$dir/$plugin.storable.gz") {
-			`gunzip -f $dir/$plugin.storable.gz`;
+			print "uncompressing $dir/$plugin.storable.gz\n";
+			system '/usr/bin/gunzip', '-f', "$dir/$plugin.storable.gz";
 		}
 		if (-f "$dir/$plugin.storable") {
 			print "loading $plugin data from $dir/$plugin.storable\n";
@@ -107,8 +108,9 @@ sub save_plugin_state { #{{{
 			if (defined $data) {
 				print "saving $plugin data to $dir/$plugin.storable\n";
 				Storable::nstore $data, "$dir/$plugin.storable";
+				print "compressing $dir/$plugin.storable\n";
+				system '/usr/bin/gzip', '-f', "$dir/$plugin.storable";
 			}
-			`gzip -f $dir/$plugin.storable`;
 		}
 	}
 } #}}}
@@ -232,15 +234,18 @@ sub interactive_commands { #{{{
 		$time *= 60*60*24*7 if $unit eq 'w';
 		$self->{block}->{lc $who} = $t + $time;
 	}
+	elsif ($c[3] =~ /savestate/) {
+		$self->save_plugin_state($_) for (keys %{$self->{plugins}});
+	}
 } #}}}
 sub try_unload_all_plugins { #{{{
 	my $self = shift;
 	my $dir = $self->{persistence_dir};
 	my @names = keys %{$self->{plugins}};
 	for my $pn (@names) {
-		$self->try_unload_plugin($pn);
+		$self->try_unload_plugin($pn, 1);
 	}
 	Storable::nstore $self->{blocked}, "$dir/PluginManager.storable";
-	`gzip -f $dir/PluginManager.storable`;
+	system '/usr/bin/gzip', '-f', "$dir/PluginManager.storable";
 } #}}}
 1;
