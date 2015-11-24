@@ -119,12 +119,14 @@ sub is_blocked { #{{{
 	my $who = lc shift;
 	my $t = time;
 	if (exists $self->{blocked}->{$who}) {
-		if ($self->{blocked}->{$who} <= $t) {
-			print STDERR "--- $who is blocked until $self->{blocked}->{$who}\n";
-			return 1;
-		}
-		else {
-			delete $self->{blocked}->{$who};
+		if ($self->{blocked}->{$who} > 0) {
+			if ($self->{blocked}->{$who} <= $t) {
+				print STDERR "--- $who is blocked until $self->{blocked}->{$who}\n";
+				return 1;
+			}
+			else {
+				delete $self->{blocked}->{$who};
+			}
 		}
 	}
 	return 0;
