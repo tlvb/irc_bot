@@ -241,7 +241,7 @@ sub interactive_commands { #{{{
 		$self->{block}->{lc $who} = $t + $time;
 
 	}
-	elsif ($c[3] =~ /block\s+(\w+)\s+(\d+)(\w)/) {
+	elsif ($c[3] =~ /block\s+(\w+)/) {
 		$self->{block}->{lc $who} = 0;
 		print STDERR "--- blocking $who indefinitely\n";
 	}
