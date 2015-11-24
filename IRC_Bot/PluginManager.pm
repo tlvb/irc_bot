@@ -19,6 +19,11 @@ sub new { #{{{
 		persistence_dir=>$persistence_dir,
 		blocked=>$blocked
 	};
+	print STDERR "current blocked names list:\n";
+	for (keys %{$self->{blocked}}) {
+		print STDERR "$_ until $self->{blocked}->{$_}\n";
+	}
+	print STDERR "end of current blocked names list\n";
 	bless $self, $class;
 	return $self;
 } #}}}
@@ -239,15 +244,15 @@ sub interactive_commands { #{{{
 		$time *= 60*60*24 if $unit eq 'd';
 		$time *= 60*60*24*7 if $unit eq 'w';
 		$self->{block}->{lc $who} = $t + $time;
-
+		print STDERR "--- blocking $who until $self->{blocked}->{$who}\n";
 	}
 	elsif ($c[3] =~ /block\s+(\w+)/) {
+		my $who = $1;
 		$self->{block}->{lc $who} = 0;
 		print STDERR "--- blocking $who indefinitely\n";
 	}
 	elsif ($c[3] =~ /savestate/) {
 		$self->save_plugin_state($_) for (keys %{$self->{plugins}});
-		print STDERR "--- blocking $who until $self->{blocked}->{$who}\n";
 	}
 } #}}}
 sub try_unload_all_plugins { #{{{
