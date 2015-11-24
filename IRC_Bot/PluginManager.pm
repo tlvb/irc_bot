@@ -128,6 +128,10 @@ sub is_blocked { #{{{
 				delete $self->{blocked}->{$who};
 			}
 		}
+		else {
+			print STDERR "--- $who is blocked indefinitely\n";
+			return 1;
+		}
 	}
 	return 0;
 } #}}}
@@ -235,9 +239,15 @@ sub interactive_commands { #{{{
 		$time *= 60*60*24 if $unit eq 'd';
 		$time *= 60*60*24*7 if $unit eq 'w';
 		$self->{block}->{lc $who} = $t + $time;
+
+	}
+	elsif ($c[3] =~ /block\s+(\w+)\s+(\d+)(\w)/) {
+		$self->{block}->{lc $who} = 0;
+		print STDERR "--- blocking $who indefinitely\n";
 	}
 	elsif ($c[3] =~ /savestate/) {
 		$self->save_plugin_state($_) for (keys %{$self->{plugins}});
+		print STDERR "--- blocking $who until $self->{blocked}->{$who}\n";
 	}
 } #}}}
 sub try_unload_all_plugins { #{{{
