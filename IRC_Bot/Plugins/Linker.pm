@@ -10,7 +10,8 @@ sub new { #{{{
 	my ($class, $botstate) = @_;
 	my $self = {
 		urlpart=>qr/(?:[-\._~:\/\?#\[\]\@!\$\&'\(\)\*\+,;=A-Za-z0-9]|%(?:[0-9A-Fa-f]{2}))/,
-		curlbinary=> $^O eq 'openbsd' ? '/usr/local/bin/curl' : '/usr/bin/curl'
+		curlbinary=> $^O eq 'openbsd' ? '/usr/local/bin/curl' : '/usr/bin/curl',
+		urls=>{}
 	};
 	bless $self, $class;
 	return $self;
@@ -62,9 +63,17 @@ sub handle_input { #{{{
 		}
 	}
 	else {
+		my $t = time;
 		return () if $m->{params}->[0] eq $mynick; # don't extract links in private messages to the bot
+		for my $uk (keys %{$self->{urls}}) {
+			delete $self->{urls}->{$uk} if $self->{urls}->{$uk} < $t;
+		}
 		for my $url ($m->{params}->[1] =~ /https?:\/\/$self->{urlpart}+/g) {
 			print "URL MATCH: $url\n";
+			if (exists $self->{urls}->{$url}) {
+				return ();
+			}
+			$self->{urls}->{$url} = $t + 120;
 			my $title = $self->try_get_title($url);
 			if ($title ne '' and $title !~ /^(?:imgur|google(?:\.com)?)$/i) {
 				push @ret, ['PRIVMSG', $m->{params}->[0], '[ '.$title.' ]'];
@@ -75,4 +84,3 @@ sub handle_input { #{{{
 } #}}}
 
 1;
-
