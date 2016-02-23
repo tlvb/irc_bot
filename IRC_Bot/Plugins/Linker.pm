@@ -40,10 +40,10 @@ sub try_get_title { #{{{
 	close $fd;
 	if ($page =~ /<title>\s*(.*?)\s*<\/title>/s) {
 		my $title = $1;
-		$title =~ s/\s+/ /gs;
+		$title =~ s/\s+/ /g;
 		if ($title ne '') {
 			$title = decode_entities($title);
-			$title =~ s/[\r\n]//gs
+			$title =~ s/[\r\n]//g;
 			return $title;
 		}
 	}
