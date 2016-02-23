@@ -42,7 +42,9 @@ sub try_get_title { #{{{
 		my $title = $1;
 		$title =~ s/\s+/ /gs;
 		if ($title ne '') {
-			return decode_entities($title);
+			$title = decode_entities($title);
+			$title =~ s/\r\n//gs
+			return $title;
 		}
 	}
 	else {
