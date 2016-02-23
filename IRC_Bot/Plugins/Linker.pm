@@ -43,7 +43,7 @@ sub try_get_title { #{{{
 		$title =~ s/\s+/ /gs;
 		if ($title ne '') {
 			$title = decode_entities($title);
-			$title =~ s/\r\n//gs
+			$title =~ s/[\r\n]//gs
 			return $title;
 		}
 	}
