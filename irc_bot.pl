@@ -33,7 +33,7 @@ for (@plugins) {
 }
 my $recon_delay = 0;
 while ($staying_alive) {
-	my $ircio = IRC_Bot::IRC_IO->new(ssl=>$ssl);
+	my $ircio = IRC_Bot::IRC_IO->new(ssl=>$ssl, log=>"$pdir/irc_log");
 	my $irc = IRC_Bot::IRC_Basics->new($ircio);
 	$SIG{INT} = sub {
 		$ircio->csend('QUIT', 'SIGINT');

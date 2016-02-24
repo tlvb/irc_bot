@@ -29,8 +29,9 @@ crlf       =  %x0D %x0A   ; "carriage return" "linefeed"
 
 sub new { #{{{
 	my $class = shift;
-	my %opts = (ssl=>0, ssl_opts=>{}, inet_opts=>{}, @_);
-	my $self = {opts=>\%opts, plugins=>{}, listeners=>{}, socket=>undef};
+	my %opts = (ssl=>0, log=>'/tmp/irc_raw_log', ssl_opts=>{}, inet_opts=>{}, @_);
+	my $self = {opts=>\%opts, plugins=>{}, listeners=>{}, socket=>undef, logfd=>undef};
+	open $self->{logfd}, '>>', $opts{log} or die "no irc without a log:\n$!";
 	bless $self, $class;
 	return $self;
 } #}}}
@@ -38,6 +39,7 @@ sub connect { #{{{
 	my $self = shift;
 	my $host = shift // $self->{host};
 	my $port = shift // $self->{port};
+
 	print STDERR "attempting to connect to host '$host', on port '$port'\n";
 	$self->{host} = $host;
 	$self->{port} = $port;
@@ -65,6 +67,7 @@ sub connect { #{{{
 sub close { #{{{
 	my $self = shift;
 	CORE::close close $self->{socket} if defined $self->{socket};
+	close $self->{fd};
 } #}}}
 sub is_connected { #{{{
 	my $self = shift;
@@ -212,6 +215,7 @@ sub receive { #{{{
 				}
 			}
 		}
+		print {$self->{logfd}} time.'[>]: '.$line;
 		chomp $line;
 	}
 	my $msg = _parse($line);
@@ -229,6 +233,8 @@ sub send { #{{{
 	print "<<< ";
 	_ppp $msg, $self->{redact};
 	print "\n";
+	my $raw = _unparse($msg);
+	print {$self->{logfd}} time.'[<]: '.$raw;
 	print $socket _unparse($msg);
 	flush $socket;
 	return $self;
@@ -244,7 +250,9 @@ sub csend { #{{{
 	print "<<< ";
 	_ppp $msg, $self->{redact};
 	print "\n";
-	print $socket _unparse($msg);
+	my $raw = _unparse($msg);
+	print {$self->{logfd}} time.'[<]: '.$raw;
+	print $socket $raw;
 	flush $socket;
 	return $self;
 } #}}}
