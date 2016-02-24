@@ -67,7 +67,7 @@ sub connect { #{{{
 sub close { #{{{
 	my $self = shift;
 	CORE::close close $self->{socket} if defined $self->{socket};
-	close $self->{fd};
+	close $self->{logfd};
 } #}}}
 sub is_connected { #{{{
 	my $self = shift;
