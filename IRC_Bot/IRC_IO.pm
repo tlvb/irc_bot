@@ -128,6 +128,7 @@ sub _unparse { #{{{
 	# change if/when I see a client originating command that
 	# uses it.
 	my %input = %{$_[0]};
+	s/[\r\n//g for (values %input);
 	die 'error: no command ['.join(' ', caller).']' unless exists $input{command};
 	for (@{$input{params}}[0..$#{$input{params}}-1]) {
 		die 'error: nonlast param begins with colon ['.join(' ', caller).']' if (substr($_, 0, 1) eq ':');
