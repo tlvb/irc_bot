@@ -11,7 +11,8 @@ sub new { #{{{
 	my $self = {
 		urlpart=>qr/(?:[-\._~:\/\?#\[\]\@!\$\&'\(\)\*\+,;=A-Za-z0-9]|%(?:[0-9A-Fa-f]{2}))/,
 		curlbinary=> $^O eq 'openbsd' ? '/usr/local/bin/curl' : '/usr/bin/curl',
-		urls=>{}
+		urls=>{},
+		ignoretitles=>[qr/^404 Not Found$/i, qr/^YouTube$/i, qr/^imgur(?:\.com)?$/i, qr/^google(?:\.com)?$/i]
 	};
 	bless $self, $class;
 	return $self;
@@ -44,6 +45,12 @@ sub try_get_title { #{{{
 		if ($title ne '') {
 			$title = decode_entities($title);
 			$title =~ s/[\r\n]//g;
+			for my $igt (@{$self->{ignoretitles}}) {
+				if ($title =~ $igt) {
+					print STDERR "title '$title' matches ignored title regex '$igt'\n";
+					return '';
+				}
+			}
 			return $title;
 		}
 	}
@@ -85,7 +92,7 @@ sub handle_input { #{{{
 			print "YOUTUBE MATCH: $ytdesig ($1)\n";
 			my $ytid = $1;
 			my $title = $self->try_get_title("https://youtu.be/$ytid");
-			if ($title ne '' and $title !~ /^(?:imgur|google(?:\.com)?)$/i) {
+			if ($title ne '') {
 				push @ret, ['PRIVMSG', $m->{params}->[0], "[ https://youtu.be/$ytid | $title ]"];
 			}
 		}

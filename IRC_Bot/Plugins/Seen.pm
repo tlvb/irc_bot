@@ -96,7 +96,8 @@ sub handle_input { #{{{
 
 	if (@c) { #{{{
 		# a command
-		# ( trg who comm params... )
+		# (           0         1    2      3... )
+		# ( where_asked who_asked comm params... )
 		if ($c[2] eq 'seen') {
 			if ($c[3] eq '...') {
 				push @ret, ['PRIVMSG', $c[0], "$c[1]: $_"] for $self->retrieve_morehook($c[1]);
