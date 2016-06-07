@@ -88,7 +88,7 @@ sub handle_input { #{{{
 				push @ret, ['PRIVMSG', $m->{params}->[0], '[ '.$title.' ]'];
 			}
 		}
-		for my $ytdesig ($m->{params}->[1] =~ /yt:(\S+)/g) {
+		for my $ytdesig ($m->{params}->[1] =~ /(?:^|\s)yt:(\S+)/g) {
 			print "YOUTUBE MATCH: $ytdesig ($1)\n";
 			my $ytid = $1;
 			my $title = $self->try_get_title("https://youtu.be/$ytid");
