@@ -1,0 +1,140 @@
+#!/usr/bin/env perl
+use warnings;
+use strictures 2;
+use Proc::Daemon;
+use Const::Fast;
+use Time::HiRes qw/time/;
+
+use IRCBot::ConfigReader;
+use IRCBot::DayLog;
+use IRCBot::Message;
+use IRCBot::MessageSocket;
+use IRCBot::Plugin::Broker;
+
+binmode STDOUT, ':encoding(UTF-8)';
+
+my $config_file = 'config/config.pl';
+my $foreground = 0;
+for (0..$#ARGV) {
+	if ($ARGV[$_] eq '-c') {
+		$config_file = $ARGV[$_+1];
+	}
+	elsif ($ARGV[$_] eq '-f') {
+		$foreground = 1;
+	}
+}
+
+
+if (not $foreground) {
+	my $daemon = Proc::Daemon->new(work_dir=>'.');
+	my $pid = $daemon->Init();
+	if ($pid != 0) {
+		exit;
+	}
+}
+
+sub handle_connection_error { #{{{
+	my $m = shift;
+	my $n = shift;
+	log_hp("connection error: $m");
+	if ($n > 7) {
+		# more drastic measures, like calling a script that
+		# checks general network connectivity and possibly
+		# reboots the modem
+	}
+	return $n;
+} #}}}
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# main loop
+#
+my $n_conn_err = 0;
+my $last_message_time = time;
+my $sigusr1 = 0;
+my $sigint = 0;
+sub log_hp { #{{{
+	my $msg = shift;
+	IRCBot::DayLog::log([IRCBot::DayLog::red, 'irce main', IRCBot::DayLog::regular], $msg);
+} #}}}
+sub log_lp { #{{{
+	my $msg = shift;
+	my $level = shift;
+	my $config = shift;
+	if (grep {$level eq $_} @{$config->{loglevel}}) {
+		IRCBot::DayLog::log([IRCBot::DayLog::blue, 'irce main', IRCBot::DayLog::regular], $msg);
+	}
+} #}}}
+$SIG{USR1} = sub { $sigusr1 = 1; IRCBot::DayLog::log([IRCBot::DayLog::red, 'irce sigtrap', IRCBot::DayLog::regular], "SIGUSR1 - reloading config"); };
+$SIG{INT} = sub { $sigint = 1; IRCBot::DayLog::log([IRCBot::DayLog::red, 'irce sigtrap', IRCBot::DayLog::regular], "SIGINT - quitting"); };
+while (not $sigint) { #{{{
+	log_hp('loading config');
+	const my $CONFIG => IRCBot::ConfigReader::read($config_file);
+	my $s = undef;
+	log_hp('opening socket');
+	$s = IRCBot::MessageSocket->new(
+		use_ssl=>$CONFIG->{connection}->{ssl},
+		PeerHost=>$CONFIG->{connection}->{host},
+		PeerPort=>$CONFIG->{connection}->{port}
+	);
+	if (defined $s) { #{{{
+		log_hp('connected to server');
+		my $timeout = 30;
+		$n_conn_err = 0;
+
+		my $broker = IRCBot::Plugin::Broker->new(config=>$CONFIG, identity=>$CONFIG->{identity});
+		my $m = IRCBot::Message->new(
+			command=>'USER',
+			params=>[
+				$CONFIG->{identity}->{user},
+				'0',
+				'*',
+				$CONFIG->{identity}->{realname}]);
+		$s->write_message($m);
+		log_lp('<<< '.$m->deflate, 'debug', $CONFIG);
+		$sigusr1 = 0;
+		$broker->emit_event(origin=>'system', type=>'USER-SENT');
+		CONNECTED_ITERATION: while (not $sigusr1) { #{{{
+			my @mos = $broker->get_messages;
+			for (@mos) { #{{{
+				my $now = time;
+				if ($now - $last_message_time < 1) {
+					sleep 1;
+				}
+				$last_message_time = $now;
+				log_lp('<<< '.$_->deflate, 'debug', $CONFIG);
+				$s->write_message($_);
+			} #}}}
+			my $patience = $broker->get_min_timeout;
+			my ($m, $ok) = $s->read_message($patience);
+			if ($ok) { #{{{
+				if ($m) { #{{{
+					log_lp('>>> '.$m->deflate, 'debug', $CONFIG);
+					$broker->handle_message($m);
+				} #}}}
+				else { #{{{
+					log_lp('### timeout', 'debug', $CONFIG);
+					$broker->handle_timeout;
+				} #}}}
+				if ($broker->process_events) {
+					log_lp('reset as requested by broker', 'warning', $CONFIG);
+					last CONNECTED_ITERATION;
+				}
+			} #}}}
+			else { #{{{
+				handle_connection_error($m, $n_conn_err);
+				last CONNECTED_ITERATION;
+			} #}}}
+			last CONNECTED_ITERATION if $sigint;
+		} #}}}
+		$broker->shutdown;
+		$s->close;
+	} #}}}
+	else {
+		my $err = $IRCBot::MessageSocket::Socket_Error;
+		handle_connection_error($err, $n_conn_err);
+		$n_conn_err += 1;
+	}
+	my $delay = 2**(2+$n_conn_err);
+	log_hp("Sleeping $delay seconds.") unless $sigint;
+	sleep $delay unless $sigint;
+} #}}}
