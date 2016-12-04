@@ -14,7 +14,7 @@ sub new { #{{{
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
 	my $browser = LWP::UserAgent->new;
 	$browser->agent('Mozilla/5.0');
-	@{$self}{qw/version browser/} = ('0.2.1', $browser);
+	@{$self}{qw/version browser/} = ('0.2.1b', $browser);
 	bless $self, $class;
 
 	return $self;
@@ -31,7 +31,7 @@ sub fetch_url_title { #{{{
 		my $title = $p->header('Title');
 		if (!defined $title) {
 			$r->content =~ m,<title>([^<]*)</title>,;
-			$title = $1;
+			$title = $1//'';
 			$title =~ s/\s+/ /sg;
 		}
 		return $title;
