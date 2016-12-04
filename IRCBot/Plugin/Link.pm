@@ -14,7 +14,7 @@ sub new { #{{{
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
 	my $browser = LWP::UserAgent->new;
 	$browser->agent('Mozilla/5.0');
-	@{$self}{qw/version browser/} = ('0.2.1b', $browser);
+	@{$self}{qw/version browser/} = ('0.2.2', $browser);
 	bless $self, $class;
 
 	return $self;
@@ -71,7 +71,7 @@ sub try_extract_url {
 	my $self = shift;
 	my $mdata = shift;
 	my @ret = ();
-	@ret = map { ['url', $_] } $mdata =~ m|\b(https?://[^\x00-\x1f]+)\b|g;
+	@ret = map { ['url', $_] } $mdata =~ m|\b(https?://[^\x00-\x20]+)\b|g;
 	return @ret;
 }
 sub try_extract_youtube {
