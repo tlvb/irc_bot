@@ -11,7 +11,7 @@ sub new { #{{{
 
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
 	@{$self}{qw/version auth_mode ghost_timestamp/} =
-	            ('0.2.3-debug2', 'undecided', -1);
+	            ('0.2.3-debug3', 'undecided', -1);
 	bless $self, $class;
 
 	my $pwconf = IRCBot::ConfigReader::read($self->config->{password_file});
@@ -160,7 +160,7 @@ sub handle_message { #{{{
 		if ($m->c eq 'NOTICE' && $m->{prefix} eq 'NickServ!NickServ@services.') {
 			$self->{ghost_timestamp} = -1;
 			$self->log_d("inactivating ghost timestamp");
-			if ($m->p1 =~ /has been ghosted/i) {
+			if ($m->p1 =~ /has been ghosted/i || $m->p1 =~ /is not online/) {
 				$self->emit_message(
 					command=>'NICK',
 					params=>[$self->identity->{nick}]);
