@@ -10,7 +10,7 @@ sub new { #{{{
 	my $class = shift;
 
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
-	@{$self}{qw/version/} = ('0.0.0-alpha-24');
+	@{$self}{qw/version/} = ('0.0.0-alpha-28');
 	bless $self, $class;
 
 	return $self;
@@ -77,8 +77,9 @@ BOILERPLATE0
 		my $index = -1;
 		for my $index (0..$#links) {
 			my $link = $links[$index];
-			my $url = $link->{url}//'example.org';
-			my $description = encode_entities($link->{description}//'example description');
+			my $description = encode_entities($link->{description}//'');
+			my $url = $link->{url}//'';
+			next if $description eq '' or $url eq '';
 			printf $fh '<span class="index">%d</span> <a href="%s">[link]</a> <span class="description">%s</span><br>'."\n",
 				$index, $url, $description;
 		}
@@ -160,6 +161,13 @@ sub handle_event { #{{{
 						}
 					}
 				}
+				elsif ($comm eq 'list!') {
+					my @ixes = split /\s+/, $rest;
+					$self->log_d('list exclamation');
+					for my $i (@ixes) {
+						push @linksout, $linksin[$i] if 0 <= $i && $i < @linksin;
+					}
+				}
 				if ($self->try_write_links_for($e->{nick}, @linksout)) {
 					$self->emit_message(
 						command=>'PRIVMSG',
@@ -182,8 +190,8 @@ sub handle_message { #{{{
 		if ($p->{addressed} > 0) {
 			my ($comm, $rest) = split /\s+/, $p->{message}, 2;
 			$self->log_d("got a <$comm> message with rest <".($rest//'').">");
-			if ($comm eq 'list+' || $comm eq 'list-') {
-				$self->log_d("got a plusminus message");
+			if ($comm eq 'list+' || $comm eq 'list-' || $comm eq 'list!') {
+				$self->log_d("got a plusminusexclam message");
 				$self->emit_event(target=>'acl', origin=>'user_data', type=>'ACL-QUERY', nick=>$m->{name}, data=>{parsed=>$p, comm=>$comm, rest=>$rest});
 			}
 			elsif ($comm eq 'list') {
