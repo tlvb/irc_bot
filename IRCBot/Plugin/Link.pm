@@ -14,7 +14,7 @@ sub new { #{{{
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
 	my $browser = LWP::UserAgent->new;
 	$browser->agent('Mozilla/5.0');
-	@{$self}{qw/version browser/} = ('0.2.4', $browser);
+	@{$self}{qw/version browser/} = ('0.2.4-beta-1', $browser);
 	bless $self, $class;
 
 	return $self;
@@ -117,16 +117,18 @@ sub handle_message { #{{{
 			for (@designators) {
 				$self->log_d("designator match: type: '$_->[0]', value: '$_->[1]'");
 			}
-			if (exists $self->config->{use_acl} && $self->config->{use_acl} eq 'NO') {
-				# acl disabled
-				$self->handle_designators(who=>$m->{name}, channel=>$m->p0, designators=>\@designators);
-			}
-			else {
-				# acl enabled: only link for people above a certain level of trust
-				$self->emit_event(
-					target=>'acl', origin=>'link',
-					type=>'ACL-QUERY', nick=>$m->{name},
-					data=>{channel=>$m->p0, designators=>\@designators, who=>$m->{name}});
+			if (0 < @designators) {
+				if (exists $self->config->{use_acl} && $self->config->{use_acl} eq 'NO') {
+					# acl disabled
+					$self->handle_designators(who=>$m->{name}, channel=>$m->p0, designators=>\@designators);
+				}
+				else {
+					# acl enabled: only link for people above a certain level of trust
+					$self->emit_event(
+						target=>'acl', origin=>'link',
+						type=>'ACL-QUERY', nick=>$m->{name},
+						data=>{channel=>$m->p0, designators=>\@designators, who=>$m->{name}});
+				}
 			}
 		}
 	}
