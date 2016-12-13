@@ -10,7 +10,7 @@ sub new { #{{{
 	my $class = shift;
 
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
-	@{$self}{qw/version/} = ('0.0.0-alpha-28');
+	@{$self}{qw/version/} = ('0.0.0-alpha-29');
 	bless $self, $class;
 
 	return $self;
@@ -162,10 +162,17 @@ sub handle_event { #{{{
 					}
 				}
 				elsif ($comm eq 'list!') {
-					my @ixes = split /\s+/, $rest;
+					my @ixes = map { $_ eq "*" and $_ or 0+$_ } split /\s+/, $rest;
 					$self->log_d('list exclamation');
 					for my $i (@ixes) {
-						push @linksout, $linksin[$i] if 0 <= $i && $i < @linksin;
+						if ($i eq '*') {
+							for my $j (0..$#linksin) {
+								push @linksout, $linksin[$j] unless 0 < grep {$_ ne '*' && $j == $_} @ixes;
+							}
+						}
+						else {
+							push @linksout, $linksin[$i] if 0 <= $i && $i < @linksin;
+						}
 					}
 				}
 				if ($self->try_write_links_for($e->{nick}, @linksout)) {
