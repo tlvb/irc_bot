@@ -10,7 +10,7 @@ sub new { #{{{
 	my $class = shift;
 
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
-	@{$self}{qw/version watchlist pingback/} = ('0.0.0-beta-0', {}, {});
+	@{$self}{qw/version watchlist pingback/} = ('0.0.0-beta-3', {}, {});
 	bless $self, $class;
 
 	return $self;
@@ -100,7 +100,7 @@ sub handle_event { #{{{
 		}
 		elsif ($data->{querytype} == 1) {
 			# query response for the target when the request is made
-			if (not defined $e->{acl_data}) {
+			if ($e->{acl_data}->{trust} == -10) {
 				# no such user online, all right!
 				$self->add_watchlist_entry_for($data->{fromwho}, $data->{targetwho}, $data->{message});
 				my $response = 'I will notify you if I see '.$data->{targetwho};
@@ -109,12 +109,17 @@ sub handle_event { #{{{
 				}
 				$self->emit_message(
 					command=>'PRIVMSG',
-					params=>[$data->{parsed}->{respond_target}, $response.'.']);
+					params=>[$data->{parsed}->{respond_target}, $data->{parsed}->{respond_prefix}.$response.'.']);
 			}
 			elsif ($e->{acl_data}->{trust} >= 1) {
 				$self->emit_message(
 					command=>'PRIVMSG',
 					params=>[$data->{parsed}->{respond_target}, $data->{parsed}->{respond_prefix}.'User '.$data->{targetwho}.' already online and logged in.']);
+			}
+			elsif ($e->{acl_data}->{trust} == -20) {
+				$self->emit_message(
+					command=>'PRIVMSG',
+					params=>[$data->{parsed}->{respond_target}, $data->{parsed}->{respond_prefix}.'User '.$data->{targetwho}.' is not registered with NickServ.']);
 			}
 		}
 		elsif ($data->{querytype} == 2) {

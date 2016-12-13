@@ -8,12 +8,13 @@ sub new { #{{{
 	my $class = shift;
 
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
-	@{$self}{qw/version acl chan_sigils umode_sigils mode_extractor freezer monitored_channels/} = ( #{{{
-		'0.3.0',
+	@{$self}{qw/version acl chan_sigils umode_sigils mode_extractor freezer freezerlock monitored_channels/} = ( #{{{
+		'0.4.0-beta-0',
 		{},
 		['#'],
 		{'@'=>'o', '+'=>'v'},
 		qr/([+@]*)(.*)/,
+		{},
 		{},
 		[]
 	); #}}}
@@ -54,6 +55,7 @@ sub respond { #{{{
 	my $self = shift;
 	my $event = shift;
 	my $nick = $event->{nick};
+	my $forcetrust = shift;
 	my $aclent = undef;
 	if (exists $self->{acl}->{$nick}) {
 		$aclent = $self->{acl}->{$nick};
@@ -75,6 +77,11 @@ sub respond { #{{{
 			$self->log_d("$k=>$vs")
 		}
 	}
+	$aclent //= {};
+	if (defined $forcetrust) {
+		$aclent = {trust=>$forcetrust};
+	}
+	$self->log_d('trust is '.($aclent->{trust}//'UNDEF'));
 	$self->emit_event(
 		type=>'ACL-RESPONSE',
 		origin=>'acl',
@@ -90,6 +97,8 @@ sub init_nick { #{{{
 	if (not exists $self->{acl}->{$nick}) {
 		$self->{acl}->{$nick} = { trust=>-1000 };
 		# -1000 uninitialized should not be seen outside the plugin
+		# -20 not online and not registered
+		# -10 not online
 		# -2 explicitly blacklisted by nick
 		# -1 explicitly blacklisted by login, e.g. so as to not respond to other bots etc
 		# 0 unknown/not identified
@@ -237,17 +246,39 @@ sub handle_message { #{{{
 		$m->c eq 'NOTICE'
 		and $m->{prefix} eq 'NickServ!NickServ@services.'
 		and $m->p0 eq $self->identity->{nick}
-		and $m->p1 =~ /^(\S+) -> (\S+) ACC (\d+)(?:\s|$)/
 	) {
-		# somenick -> someaccount ACC 3
-		# somenick -> * ACC 0 (not registered)
-		my $nick = $1;
-		my $nsacc = $2;
-		$self->log_d($nick.' has NickServ account status '.$3.'/'.$nsacc);
-		$self->update_auth($nick, $nsacc);
-		if ($self->has_frozen($nick)) {
-			my @thawed = $self->thaw($nick);
-			$self->respond($_) for @thawed;
+		$self->log_d($m->{sanitized_message});
+		if ($m->{sanitized_message} =~ /^(\S+) -> (\S+) ACC (\d+)(?:\s|$)/) {
+			# somenick -> someaccount ACC 3
+			# somenick -> * ACC 0 (not registered)
+			my $nick = $1;
+			my $nsacc = $2;
+			$self->log_d($nick.' has NickServ account status '.$3.'/'.$nsacc);
+			$self->update_auth($nick, $nsacc);
+			if ($self->has_frozen($nick)) {
+				my @thawed = $self->thaw($nick);
+				$self->respond($_) for @thawed;
+			}
+		}
+		elsif ($m->{sanitized_message} =~ /^(\S+) is not registered/) {
+			my $nick = $1;
+			$self->log_d($nick.' is not a registered nick');
+			$self->unlock_freezer($nick);
+			if ($self->has_frozen($nick)) {
+				$self->log_d("processing thawed event for $nick.");
+				my @thawed = $self->thaw($nick);
+				$self->respond($_, -20) for @thawed;
+			}
+		}
+		elsif ($m->{sanitized_message} =~ /Information on (\S+)/) {
+			my $nick = $1;
+			$self->log_d($nick.' is registered, but not online');
+			$self->unlock_freezer($nick);
+			if ($self->has_frozen($nick)) {
+				$self->log_d("processing thawed event for $nick.");
+				my @thawed = $self->thaw($nick);
+				$self->respond($_, -10) for @thawed;
+			}
 		}
 	} #}}}
 	elsif ($m->c eq '353') { # RPL_NAMREPLY #{{{
@@ -307,12 +338,11 @@ sub handle_message { #{{{
 	} #}}}
 	elsif ($m->c eq '401') { # RPL_NOSUCHNICK #{{{
 		#401 irce|dev tlvb :No such nick/channel
+		$self->lock_freezer($m->p1);
 		$self->wipe_slate($m->p1);
-		if ($self->has_frozen($m->p1)) {
-			my @thawed = $self->thaw($m->p1);
-			$self->respond($_) for @thawed;
-		}
-
+		$self->emit_message(
+			command=>'PRIVMSG',
+			params=>['NickServ', "INFO ".$m->p1]);
 	} #}}}
 	elsif ($m->c eq 'MODE') { # handle mode changes? #{{{
 		my $type = 'user';
@@ -434,6 +464,7 @@ sub freeze { #{{{
 	my $self = shift;
 	my $key = shift;
 	my $value = shift;
+	$self->log_d("freezing a value with key $key");
 	$self->{freezer}->{$key} = [] unless exists $self->{freezer}->{$key};
 	push @{$self->{freezer}->{$key}}, $value;
 } #}}}
@@ -441,8 +472,21 @@ sub has_frozen { return exists $_[0]->{freezer}->{$_[1]}; }
 sub thaw { #{{{
 	my $self = shift;
 	my $key = shift;
-	return () unless exists $self->{freezer}->{$key};
+	$self->log_d("thawing values with key $key");
+	return () unless exists $self->{freezer}->{$key} and not exists $self->{freezerlock}->{$key};
 	return @{ scalar delete $self->{freezer}->{$key} };
 } #}}}
+sub lock_freezer {
+	my $self = shift;
+	my $key = shift;
+	$self->log_d("locking freezer entries with key  $key");
+	$self->{freezerlock}->{$key} = 1;
+}
+sub unlock_freezer {
+	my $self = shift;
+	my $key = shift;
+	$self->log_d("unlocking freezer entries with key  $key");
+	delete $self->{freezerlock}->{$key};
+}
 
 1;
