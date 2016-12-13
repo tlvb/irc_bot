@@ -2,7 +2,6 @@ use warnings;
 use strictures 2;
 package IRCBot::Plugin::JoinChannel;
 use parent 'IRCBot::Plugin::PluginBase';
-use IRCBot::ConfigReader;
 use IRCBot::Message;
 
 sub new { #{{{
