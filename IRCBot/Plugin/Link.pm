@@ -14,7 +14,7 @@ sub new { #{{{
 	my $self = IRCBot::Plugin::PluginBase->new(@_);
 	my $browser = LWP::UserAgent->new;
 	$browser->agent('Mozilla/5.0');
-	@{$self}{qw/version browser/} = ('0.2.2', $browser);
+	@{$self}{qw/version browser/} = ('0.2.4', $browser);
 	bless $self, $class;
 
 	return $self;
@@ -26,7 +26,10 @@ sub fetch_url_title { #{{{
 	my $p = HTML::HeadParser->new;
 	my $r = $self->{browser}->head($url, Accept=>'text/*, application/xhtml+xml');
 	if ($r->content_type =~ m,(?:text/.*)|(?:application/xhtml\+xml),) {
-		$r = $self->{browser}->get($url, Accept=>'text/*,application/xhtml+xml');
+		$r = $self->{browser}->get(
+			$url,
+			Accept=>'text/*,application/xhtml+xml',
+			Range=>'bytes=0-65535');
 		$p->parse($r->content);
 		my $title = $p->header('Title');
 		if (!defined $title) {
@@ -113,20 +116,17 @@ sub handle_message { #{{{
 			push @designators, $self->try_extract_youtube($m->p1);
 			for (@designators) {
 				$self->log_d("designator match: type: '$_->[0]', value: '$_->[1]'");
-				my $match_event = IRCBot::Event->new(
-					target=>'link', type=>'ACL-OK',
-					data=>\@designators, chan=>$m->p0);
-				if (exists $self->config->{use_acl} && $self->config->{use_acl} eq 'NO') {
-					# acl disabled
-					$self->handle_designators(who=>$m->{name}, channel=>$m->p0, designators=>\@designators);
-				}
-				else {
-					# acl enabled: only link for people above a certain level of trust
-					$self->emit_event(
-						target=>'acl', origin=>'link',
-						type=>'ACL-QUERY', nick=>$m->{name},
-						data=>{channel=>$m->p0, designators=>\@designators, who=>$m->{name}});
-				}
+			}
+			if (exists $self->config->{use_acl} && $self->config->{use_acl} eq 'NO') {
+				# acl disabled
+				$self->handle_designators(who=>$m->{name}, channel=>$m->p0, designators=>\@designators);
+			}
+			else {
+				# acl enabled: only link for people above a certain level of trust
+				$self->emit_event(
+					target=>'acl', origin=>'link',
+					type=>'ACL-QUERY', nick=>$m->{name},
+					data=>{channel=>$m->p0, designators=>\@designators, who=>$m->{name}});
 			}
 		}
 	}
